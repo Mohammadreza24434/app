@@ -17,7 +17,7 @@ def create_license():
 # چک لایسنس
 def check_license(code):
     try:
-        if not code.startswith("AG25-"): return False, "Invalid"
+        if not code.startswith("AG25-"): return False, "Invalid format"
         clean = code[5:].replace("-", "").upper()
         today = datetime.now().date()
         for d in range(0, 26):
@@ -25,7 +25,7 @@ def check_license(code):
             expected = hashlib.md5(("airguard2025" + date.strftime("%Y%m%d")).encode()).hexdigest().upper()[:12]
             if expected == clean and d <= 20:
                 return True, f"{20 - d} days left"
-        return False, "Expired"
+        return False, "Expired or invalid"
     except:
         return False, "Error"
 
@@ -52,69 +52,76 @@ pm10_bp = [(0,54,0,50),(55,154,51,100),(155,254,101,150),(255,354,151,200),(355,
 o3_bp  = [(0,54,0,50),(55,70,51,100),(71,85,101,150),(86,105,151,200),(106,200,201,300)]
 no2_bp = [(0,53,0,50),(54,100,51,100),(101,360,101,150),(361,649,151,200),(650,1249,201,300),(1250,2049,301,500)]
 
-# صفحه
+# صفحه و استایل
 st.set_page_config(page_title="AirGuard Pro", page_icon="🌍", layout="centered")
+
+# تم زیبا + رفع مشکل تگ‌ها
 st.markdown("""
 <style>
     .main {background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); min-height: 100vh; padding: 20px;}
     .title {font-size: 4.5rem; text-align: center; font-weight: 900; background: linear-gradient(90deg, #fff, #00f5ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
-    .card {background: rgba(255,255,255,0.15); backdrop-filter: blur(20px); border-radius: 20px; padding: 30px; border: 1px solid rgba(255,255,255,0.2);}
+    .card {background: rgba(255,255,255,0.15); backdrop-filter: blur(20px); border-radius: 20px; padding: 30px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 8px 32px rgba(0,0,0,0.3);}
     .license {font-family: 'Courier New'; font-size: 1.8rem; background: #000; color: #0f0; padding: 15px; border-radius: 10px; letter-spacing: 5px;}
-    .stButton>button {background: linear-gradient(45deg, #ff6b6b, #feca57); border: none; border-radius: 50px; height: 60px; font-weight: bold;}
+    .stButton>button {background: linear-gradient(45deg, #ff6b6b, #feca57); border: none; border-radius: 50px; height: 60px; font-weight: bold; color: white;}
 </style>
 """, unsafe_allow_html=True)
 
 if 'valid' not in st.session_state:
     st.session_state.valid = False
 
+# صفحه ورود
 if not st.session_state.valid:
-    st.markdown("<h1 class='title'>AirGuard Pro</h1>")
-    st.markdown("<h3 style='text-align:center; color:#fff;'>Real-time AQI + 48h Forecast</h3>")
+    st.markdown("<h1 class='title'>AirGuard Pro</h1>", unsafe_allow_html=True)
+    st.markdown("<h3 style='text-align:center; color:#fff; opacity:0.9;'>Real-time AQI + 48h Forecast</h3>", unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns([1,2,1])
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        with st.container():
-            st.markdown("<div class='card'>", unsafe_allow_html=True)
-            st.markdown("### 20-Day License — 200,000 IRR")
-            code = st.text_input("Enter License Key", type="password", placeholder="AG25-XXXX-XXXX-XXXX")
-            if st.button("Activate License", type="primary"):
-                ok, msg = check_license(code)
-                if ok:
-                    st.session_state.valid = True
-                    st.success(f"Activated! {msg}")
-                    st.balloons()
-                    st.rerun()
-                else:
-                    st.error(msg)
-            st.markdown("**Contact:** @YourTelegramID")
-            st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.markdown("### 20-Day License — 200,000 IRR", unsafe_allow_html=True)
+        code = st.text_input("Enter License Key", type="password", placeholder="AG25-XXXX-XXXX-XXXX")
+        
+        if st.button("Activate License", type="primary"):
+            ok, msg = check_license(code)
+            if ok:
+                st.session_state.valid = True
+                st.success(f"Activated! {msg}")
+                st.balloons()
+                st.rerun()
+            else:
+                st.error(msg)
+        
+        st.markdown("**Contact:** @YourTelegramID", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
+    # فقط برای تو
     owner = st.text_input("Owner Access", type="password")
     if owner == OWNER_PASSWORD:
-        st.success("Welcome Boss!")
+        st.success("Welcome Boss! 👑")
         if st.button("Generate New License"):
             st.markdown(f"<div class='license'>{create_license()}</div>", unsafe_allow_html=True)
 
+# صفحه اصلی
 else:
-    st.markdown("<h2 style='color:#fff; text-align:center;'>AirGuard Pro — Live</h2>")
+    st.markdown("<h2 style='color:#fff; text-align:center; margin-bottom:30px;'>AirGuard Pro — Live Monitor</h2>", unsafe_allow_html=True)
     if st.sidebar.button("Logout"):
         st.session_state.valid = False
         st.rerun()
 
     col1, col2 = st.columns(2)
-    with col1: lat = st.text_input("Latitude", "35.6892")
-    with col2: lon = st.text_input("Longitude", "51.3890")
+    with col1:
+        lat = st.text_input("Latitude", "35.6892")
+    with col2:
+        lon = st.text_input("Longitude", "51.3890")
 
     if st.button("Get Live Report", type="primary", use_container_width=True):
-        with st.spinner("Loading real-time data..."):
+        with st.spinner("Fetching real-time data..."):
             current, forecast = fetch_air_quality(lat, lon)
             if not current:
-                st.error("Invalid location or no data")
+                st.error("Invalid location or no data available")
                 st.stop()
 
             c = current['list'][0]['components']
 
-            # محاسبه AQI دقیق
             aqi = max(
                 calculate_aqi(c['pm2_5'], pm25_bp),
                 calculate_aqi(c['pm10'], pm10_bp),
@@ -127,22 +134,22 @@ else:
             level = levels[min(aqi//51, 5)]
             color = colors[min(aqi//51, 5)]
 
-            st.markdown(f"<h1 style='text-align:center; color:{color}; font-size:4rem;'>{level}</h1>", unsafe_allow_html=True)
+            st.markdown(f"<h1 style='text-align:center; color:{color}; font-size:4.5rem; margin:30px 0;'>{level}</h1>", unsafe_allow_html=True)
             st.markdown(f"<h2 style='text-align:center; color:#fff;'>AQI {aqi}</h2>", unsafe_allow_html=True)
 
-            # آلاینده‌ها — بدون سه نقطه!
+            # آلاینده‌ها بدون سه نقطه
             cols = st.columns(6)
             pollutants = [
                 ("PM2.5", f"{c['pm2_5']:.1f}", "µg/m³"),
                 ("PM10", f"{c['pm10']:.1f}", "µg/m³"),
                 ("CO", f"{c['co']:.0f}", "µg/m³"),
                 ("NO₂", f"{c['no2']:.1f}", "µg/m³"),
-                ("O₃", f"{c['o3']*1000:.1f}", "ppb"),   # عدد کامل نشون داده میشه
+                ("O₃", f"{c['o3']*1000:.1f}", "ppb"),
                 ("SO₂", f"{c['so2']:.1f}", "µg/m³")
             ]
             for i, (name, val, unit) in enumerate(pollutants):
                 with cols[i]:
-                    st.metric(name, val, delta=unit, delta_color="normal")
+                    st.metric(name, val, delta=unit)
 
             # نمودار پیش‌بینی
             times = [datetime.fromtimestamp(f['dt']) for f in forecast['list'][:48]]
@@ -155,8 +162,7 @@ else:
 
             fig = go.Figure()
             fig.add_trace(go.Scatter(x=times, y=forecast_aqi, mode='lines+markers', line=dict(color='#ff4757', width=4)))
-            fig.update_layout(title="48-Hour AQI Forecast", template="plotly_dark", height=500,
-                              plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)')
+            fig.update_layout(title="48-Hour AQI Forecast", template="plotly_dark", height=500)
             st.plotly_chart(fig, use_container_width=True)
 
-st.caption("AirGuard Pro © 2025 — Real-time Global Air Quality")
+st.caption("AirGuard Pro © 2025 — Real-time Global Air Quality Monitor")
