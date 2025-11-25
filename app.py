@@ -3,29 +3,34 @@ import requests
 from datetime import datetime, timedelta
 import hashlib
 import plotly.graph_objects as go
+import pandas as pd
 
-# رمز عبور فقط برای تو (اینجا عوضش کن به هر چی دوست داری)
-OWNER_PASSWORD = "244343696Mzt"   # ← فقط خودت اینو بلد باشی
+# ←←← این رمز رو فقط خودت عوض کن (هر چی دوست داری)
+OWNER_PASSWORD = "244343696Mzt"   # ← فقط خودت بلدی
 
-# تابع ساخت کد 20 روزه
+# تابع تولید کد 20 روزه (درست و هماهنگ با چک‌کننده)
 def create_license():
     expiry = (datetime.now() + timedelta(days=20)).strftime("%Y%m%d")
     secret = "airguard_secret_2025_salt"
-    raw = f"{secret}{expiry}{datetime.now().microsecond}"
+    raw = f"{secret}{expiry}"
     hash_part = hashlib.md5(raw.encode()).hexdigest()[:12]
-    return f"AG25-{hash_part[:4]}-{hash_part[4:8]}-{hash_part[8:]}".upper()
+    return f"AG25-{hash_part[:4].upper()}-{hash_part[4:8].upper()}-{hash_part[8:].upper()}"
 
-# تابع چک کردن کد
+# تابع چک کردن کد (هماهنگ با بالا)
 def check_license(code):
     try:
-        if not code.startswith("AG25-"): return False, "نامعتبر"
+        if not code.startswith("AG25-"):
+            return False, "نامعتبر"
         clean = code[5:].replace("-", "").lower()
-        if len(clean) != 12: return False, "نامعتبر"
-        for i in range(-5, 25):
+        if len(clean) != 12:
+            return False, "نامعتبر"
+
+        # تست ۲۵ روز گذشته تا آینده
+        for i in range(-5, 26):
             test_date = (datetime.now() + timedelta(days=i)).strftime("%Y%m%d")
             test_raw = f"airguard_secret_2025_salt{test_date}"
             if hashlib.md5(test_raw.encode()).hexdigest()[:12] == clean:
-                days_left = 20 - i if i <= 20 else 0
+                days_left = 20 - i
                 if days_left > 0:
                     return True, f"{days_left} روز باقی‌مانده"
                 else:
@@ -49,7 +54,8 @@ if not st.session_state.valid:
     with st.container():
         st.markdown("<div class='card'>", unsafe_allow_html=True)
         st.markdown("### لایسنس ۲۰ روزه فقط ۲۰۰,۰۰۰ تومان")
-        code = st.text_input("کد لایسنس را وارد کنید:", type="password", placeholder="مثل AG25-8X4M-K9P2-Q7F1")
+        code = st.text_input("کد لایسنس را وارد کنید:", type="password", placeholder="مثل AG25-ABCD-EFGH-IJKL")
+        
         if st.button("فعال‌سازی لایسنس", type="primary"):
             ok, msg = check_license(code)
             if ok:
@@ -59,51 +65,52 @@ if not st.session_state.valid:
                 st.rerun()
             else:
                 st.error(msg)
+        
         st.markdown("**خرید لایسنس:** @YourTelegramID")
         st.markdown("</div>", unsafe_allow_html=True)
 
-    # ←←← فقط تو این بخش رو می‌بینی (با رمز عبور)
-    owner_pass = st.text_input("رمز صاحب اپ (فقط خودت)", type="password")
-    if owner_pass == OWNER_PASSWORD:
+    # فقط تو می‌بینی (با رمز)
+    owner = st.text_input("رمز صاحب اپ (فقط خودت)", type="password")
+    if owner == OWNER_PASSWORD:
         st.success("خوش آمدی رئیس!")
-        if st.button("تولید کد لایسنس ۲۰ روزه جدید برای مشتری"):
+        if st.button("تولید کد لایسنس ۲۰ روزه جدید"):
             new_code = create_license()
             st.markdown(f"<div class='license'>{new_code}</div>", unsafe_allow_html=True)
-            st.success("کد آماده است! کپی کن و به مشتری بده")
+            st.success("کد جدید آماده است! کپی کن و به مشتری بده")
             st.info("این کد دقیقاً ۲۰ روز کار می‌کنه")
 
 else:
     st.success("لایسنس فعال است ✅")
     if st.sidebar.button("خروج"): st.session_state.valid = False; st.rerun()
 
-    # اینجا بخش کیفیت هوا (همون قبلی)
     col1, col2 = st.columns(2)
     with col1: lat = st.text_input("عرض جغرافیایی", "35.6892")
     with col2: lon = st.text_input("طول جغرافیایی", "51.3890")
-    if st.button("دریافت گزارش کامل", type="primary", use_container_width=True):
-        # همون کد قبلی کیفیت هوا رو بذار (من برات کاملش کردم پایین)
-        st.write("در حال بارگذاری...")
 
-# ←←← بخش کامل کیفیت هوا (کپی کن و بذار بعد از خط بالا)
-    try:
-        current = requests.get(f"http://api.openweathermap.org/data/2.5/air_pollution?lat={lat}&lon={lon}&appid=c6c11b2ee2dc5eb38c9d834e9031e7e1").json()
-        forecast = requests.get(f"http://api.openweathermap.org/data/2.5/air_pollution/forecast?lat={lat}&lon={lon}&appid=c6c11b2ee2dc5eb38c9d834e9031e7e1").json()
-        c = current['list'][0]['components']
-        aqi = max(c['pm2_5'], c['pm10']//2, c['no2'], c['o3']*1000//50)
-        aqi = min(max(int(aqi),0),500)
-        level = ["خوب","متوسط","ناسالم برای گروه حساس","ناسالم","بسیار ناسالم","خطرناک"][min(aqi//51,5)]
-        color = ["#00e400","#ffff00","#ff7e00","#ff0000","#8f3f97","#7e0023"][min(aqi//51,5)]
-        st.markdown(f"<h2 style='text-align:center;color:{color}'>AQI فعلی: {aqi} - {level}</h2>", unsafe_allow_html=True)
-        cols = st.columns(6)
-        for i, (n, v) in enumerate(zip(["PM2.5","PM10","CO","NO₂","O₃","SO₂"], [c['pm2_5'],c['pm10'],c['co'],c['no2'],c['o3'],c['so2']])):
-            with cols[i]: st.metric(n, f"{v:.1f}")
-        # نمودار
-        import pandas as pd
-        df = pd.DataFrame([{"زمان": datetime.fromtimestamp(item['dt']), "AQI": max(item['components']['pm2_5'], item['components']['pm10']//2)} for item in forecast['list'][:48]])
-        fig = go.Figure(go.Scatter(x=df['زمان'], y=df['AQI'], mode='lines+markers', line=dict(color='#ff6b6b', width=4)))
-        fig.update_layout(title="پیش‌بینی ۴۸ ساعت آینده", template="plotly_dark", height=500)
-        st.plotly_chart(fig, use_container_width=True)
-    except:
-        st.error("مختصات اشتباه یا خطای اتصال")
+    if st.button("دریافت گزارش کامل کیفیت هوا", type="primary", use_container_width=True):
+        with st.spinner("در حال دریافت داده..."):
+            try:
+                current = requests.get(f"http://api.openweathermap.org/data/2.5/air_pollution?lat={lat}&lon={lon}&appid=c6c11b2ee2dc5eb38c9d834e9031e7e1").json()
+                forecast = requests.get(f"http://api.openweathermap.org/data/2.5/air_pollution/forecast?lat={lat}&lon={lon}&appid=c6c11b2ee2dc5eb38c9d834e9031e7e1").json()
+                
+                c = current['list'][0]['components']
+                aqi = max(c['pm2_5'], c['pm10']//2, c['no2'], c['o3']*1000//50, c['co']//3, c['so2']//10)
+                aqi = min(max(int(aqi),0),500)
+                level = ["خوب","متوسط","ناسالم برای گروه حساس","ناسالم","بسیار ناسالم","خطرناک"][min(aqi//51,5)]
+                color = ["#00e400","#ffff00","#ff7e00","#ff0000","#8f3f97","#7e0023"][min(aqi//51,5)]
+                
+                st.markdown(f"<h2 style='text-align:center;color:{color}'>AQI فعلی: {aqi} - {level}</h2>", unsafe_allow_html=True)
+                
+                cols = st.columns(6)
+                for i, (n, v) in enumerate(zip(["PM2.5","PM10","CO","NO₂","O₃","SO₂"], [c['pm2_5'],c['pm10'],c['co'],c['no2'],c['o3'],c['so2']])):
+                    with cols[i]: st.metric(n, f"{v:.1f}")
 
-st.caption("AirGuard Pro © ۱۴۰۴ - فقط با لایسنس ۲۰ روزه")
+                df = pd.DataFrame([{"زمان": datetime.fromtimestamp(item['dt']), "AQI": max(item['components']['pm2_5'], item['components']['pm10']//2, item['components']['no2'])} for item in forecast['list'][:48]])
+                fig = go.Figure(go.Scatter(x=df['زمان'], y=df['AQI'], mode='lines+markers', line=dict(color='#ff6b6b', width=4)))
+                fig.update_layout(title="پیش‌بینی ۴۸ ساعت آینده", template="plotly_dark", height=500)
+                st.plotly_chart(fig, use_container_width=True)
+                
+            except:
+                st.error("مختصات اشتباه یا خطا")
+
+st.caption("AirGuard Pro © ۱۴۰۴")
