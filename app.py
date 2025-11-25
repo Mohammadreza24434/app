@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 import hashlib
 import plotly.graph_objects as go
 
-# رمز فقط برای تو
+# ==================== لایسنس ====================
 OWNER_PASSWORD = "24434"
 
 def create_license():
@@ -27,7 +27,7 @@ def check_license(code):
     except:
         return False, "Error"
 
-# دریافت داده — کاملاً درست
+# ==================== دریافت داده ====================
 @st.cache_data(ttl=600, show_spinner=False)
 def get_air_data(lat, lon):
     try:
@@ -39,64 +39,75 @@ def get_air_data(lat, lon):
     except:
         return None, None
 
-# محاسبه AQI دقیق (US EPA)
-def calc_aqi(val, breakpoints):
-    for lo, hi, a_lo, a_hi in breakpoints:
+# ==================== محاسبه AQI دقیق ====================
+def calc_aqi(val, bp):
+    for lo, hi, a_lo, a_hi in bp:
         if lo <= val <= hi:
-            return int(a_lo + (a_hi - a_lo) * (val - lo) / (hi - lo))
-    return 500 if val > breakpoints[-1][1] else 0
+            return round(a_lo + (a_hi - a_lo) * (val - lo) / (hi - lo))
+    return 500 if val > bp[-1][1] else 0
 
-# Breakpoints استاندارد
 pm25_bp = [(0,12,0,50),(12.1,35.4,51,100),(35.5,55.4,101,150),(55.5,150.4,151,200),(150.5,250.4,201,300),(250.5,500,301,500)]
 pm10_bp = [(0,54,0,50),(55,154,51,100),(155,254,101,150),(255,354,151,200),(355,424,201,300),(425,604,301,500)]
 o3_bp   = [(0,54,0,50),(55,70,51,100),(71,85,101,150),(86,105,151,200),(106,200,201,300)]
 no2_bp  = [(0,53,0,50),(54,100,51,100),(101,360,101,150),(361,649,151,200),(650,1249,201,300),(1250,2049,301,500)]
 
-# تم حرفه‌ای + استایل قوی
+# ==================== تم فوق حرفه‌ای ====================
 st.set_page_config(page_title="AirGuard Pro", page_icon="🌍", layout="centered")
 
 st.markdown("""
 <style>
-    .main {background: linear-gradient(135deg, #0f0c29, #302b63, #24243e); min-height: 100vh; padding: 20px; color: white;}
-    .title {font-size: 5.5rem; text-align: center; font-weight: 900; background: linear-gradient(90deg, #00ff88, #00f5ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent;}
-    .subtitle {text-align: center; color: #88ffaa; font-size: 1.6rem; margin-top: -10px;}
-    .card {background: rgba(255,255,255,0.1); backdrop-filter: blur(20px); border-radius: 25px; padding: 40px; text-align: center; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 15px 35px rgba(0,0,0,0.5);}
-    .license {font-family: monospace; font-size: 2rem; background: #000; color: #0f0; padding: 20px; border-radius: 15px; letter-spacing: 8px;}
-    .stButton>button {background: linear-gradient(45deg, #ff6b6b, #feca57); border: none; border-radius: 50px; height: 70px; font-size: 1.5rem; font-weight: bold; color: white;}
+    .main {background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%); min-height: 100vh; padding: 20px; color: white;}
+    .title {font-size: 5.5rem; text-align: center; font-weight: 900; background: linear-gradient(90deg, #00ff88, #00f5ff); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0;}
+    .subtitle {text-align: center; color: #88ffaa; font-size: 1.7rem; margin-top: -10px;}
     
-    /* آلاینده‌ها — کاملاً دیده می‌شوند */
-    .pollutant-box {
-        background: rgba(255,255,255,0.15);
-        padding: 18px;
-        border-radius: 18px;
+    .aqi-big {font-size: 8rem; font-weight: 900; text-align: center; margin: 20px 0;}
+    .level-text {font-size: 4.5rem; font-weight: bold; text-align: center; margin: 10px 0;}
+    
+    .pollutant-grid {display: grid; grid-template-columns: repeat(6, 1fr); gap: 20px; margin: 40px 0;}
+    .pollutant-card {
+        background: rgba(255,255,255,0.1);
+        backdrop-filter: blur(15px);
+        border-radius: 20px;
+        padding: 20px;
         text-align: center;
-        margin: 8px;
-        min-height: 120px;
         border: 1px solid rgba(255,255,255,0.2);
+        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
     }
-    .pollutant-name {font-size: 1.1rem; color: #aaa; margin-bottom: 5px;}
-    .pollutant-value {font-size: 2.3rem !important; font-weight: bold !important; color: white !important; margin: 10px 0;}
+    .pollutant-name {font-size: 1.1rem; color: #cccccc; margin-bottom: 8px;}
+    .pollutant-value {font-size: 2.8rem; font-weight: bold; color: white; margin: 10px 0;}
     .pollutant-unit {font-size: 1rem; color: #88ffaa;}
+    
+    .stButton>button {
+        background: linear-gradient(45deg, #ff6b6b, #feca57);
+        border: none;
+        border-radius: 50px;
+        height: 70px;
+        font-size: 1.6rem;
+        font-weight: bold;
+        color: white;
+        width: 100%;
+    }
 </style>
 """, unsafe_allow_html=True)
 
+# ==================== لایسنس ====================
 if 'valid' not in st.session_state:
     st.session_state.valid = False
 
 if not st.session_state.valid:
     st.markdown("<h1 class='title'>AirGuard Pro</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='subtitle'>Real-time Global Air Quality Monitor</p>", unsafe_allow_html=True)
+    st.markdown("<p class='subtitle'>Live Global Air Quality Monitor</p>", unsafe_allow_html=True)
     
-    col1, col2, col3 = st.columns([1,2,1])
+    col1, col2, col3 = st.columns([1, 2, 1])
     with col2:
-        st.markdown("<div class='card'>", unsafe_allow_html=True)
+        st.markdown("<div style='background: rgba(255,255,255,0.1); backdrop-filter: blur(20px); padding: 40px; border-radius: 25px; text-align: center; border: 1px solid rgba(255,255,255,0.2);'>", unsafe_allow_html=True)
         st.markdown("### Premium 20-Day License — 200,000 IRR")
         code = st.text_input("Enter License Key", type="password", placeholder="AG25-XXXX-XXXX-XXXX")
-        if st.button("Activate License", type="primary"):
+        if st.button("Activate License"):
             ok, msg = check_license(code)
             if ok:
                 st.session_state.valid = True
-                st.success(f"Activated! {msg}")
+                st.success(f"✓ Activated! {msg}")
                 st.balloons()
                 st.rerun()
             else:
@@ -108,7 +119,7 @@ if not st.session_state.valid:
     if owner == OWNER_PASSWORD:
         st.success("Welcome Boss!")
         if st.button("Generate New License"):
-            st.markdown(f"<div class='license'>{create_license()}</div>", unsafe_allow_html=True)
+            st.code(create_license(), language="text")
 
 else:
     st.markdown("<h1 class='title'>AirGuard Pro</h1>", unsafe_allow_html=True)
@@ -118,15 +129,17 @@ else:
         st.session_state.valid = False
         st.rerun()
 
-    col1, col2 = st.columns([1,1])
-    with col1: lat = st.text_input("Latitude", "35.6892", key="lat")
-    with col2: lon = st.text_input("Longitude", "51.3890", key="lon")
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        lat = st.text_input("Latitude", "35.6892", key="lat_input")
+    with col2:
+        lon = st.text_input("Longitude", "51.3890", key="lon_input")
 
-    if st.button("Get Live Report", type="primary", use_container_width=True):
-        with st.spinner("Fetching real-time satellite data..."):
+    if st.button("Get Live Report", type="primary"):
+        with st.spinner("Fetching real-time data..."):
             current_item, forecast_list = get_air_data(lat, lon)
-            if not current_item or not forecast_list:
-                st.error("No data for this location. Try Tehran: 35.6892, 51.3890")
+            if not current_item:
+                st.error("No data available for this location.")
                 st.stop()
 
             c = current_item['components']
@@ -145,11 +158,12 @@ else:
             level = levels[level_idx]
             color = colors[level_idx]
 
-            st.markdown(f"<h1 style='text-align:center; color:{color}; font-size:6.5rem; margin:50px 0;'>{level}</h1>", unsafe_allow_html=True)
-            st.markdown(f"<h2 style='text-align:center; color:white; font-size:3.8rem;'>AQI {aqi}</h2>", unsafe_allow_html=True)
+            st.markdown(f"<div class='level-text' style='color:{color};'>{level}</div>", unsafe_allow_html=True)
+            st.markdown(f"<div class='aqi-big' style='color:{color};'>{aqi}</div>", unsafe_allow_html=True)
+            st.markdown("<h3 style='text-align:center; color:#cccccc;'>Current AQI</h3>", unsafe_allow_html=True)
 
-            # آلاینده‌ها — کاملاً واضح و زیبا
-            cols = st.columns(6)
+            # آلاینده‌ها — کاملاً مرتب و حرفه‌ای
+            st.markdown("<div class='pollutant-grid'>", unsafe_allow_html=True)
             pollutants = [
                 ("PM2.5", f"{c['pm2_5']:.1f}", "µg/m³"),
                 ("PM10", f"{c['pm10']:.1f}", "µg/m³"),
@@ -158,21 +172,21 @@ else:
                 ("O₃", f"{c['o3']*1000:.1f}", "ppb"),
                 ("SO₂", f"{c['so2']:.1f}", "µg/m³")
             ]
-            for i, (name, value, unit) in enumerate(pollutants):
-                with cols[i]:
-                    st.markdown(f"""
-                    <div class='pollutant-box'>
-                        <div class='pollutant-name'>{name}</div>
-                        <div class='pollutant-value'>{value}</div>
-                        <div class='pollutant-unit'>{unit}</div>
-                    </div>
-                    """, unsafe_allow_html=True)
+            for name, value, unit in pollutants:
+                st.markdown(f"""
+                <div class='pollutant-card'>
+                    <div class='pollutant-name'>{name}</div>
+                    <div class='pollutant-value'>{value}</div>
+                    <div class='pollutant-unit'>{unit}</div>
+                </div>
+                """, unsafe_allow_html=True)
+            st.markdown("</div>", unsafe_allow_html=True)
 
-            # نمودار پیش‌بینی — ۱۰۰٪ واقعی و متفاوت برای هر شهر
-            times = [datetime.fromtimestamp(item['dt']) for item in forecast_list]
+            # نمودار پیش‌بینی — کاملاً واقعی و پویا
+            times = [datetime.fromtimestamp(x['dt']) for x in forecast_list]
             forecast_aqi = []
-            for item in forecast_list:
-                comp = item['components']
+            for x in forecast_list:
+                comp = x['components']
                 val = max(
                     calc_aqi(comp['pm2_5'], pm25_bp),
                     calc_aqi(comp['pm10'], pm10_bp),
@@ -186,17 +200,17 @@ else:
                 x=times, y=forecast_aqi,
                 mode='lines+markers',
                 line=dict(color='#ff4757', width=5),
-                marker=dict(size=9, color='#ff6b6b'),
+                marker=dict(size=8, color='#ff6b6b'),
                 fill='tozeroy',
-                fillcolor='rgba(255,71,87,0.2)'
+                fillcolor='rgba(255,71,87,0.15)'
             ))
             fig.update_layout(
                 title="48-Hour AQI Forecast",
                 template="plotly_dark",
-                height=520,
+                height=500,
                 plot_bgcolor='rgba(0,0,0,0)',
                 paper_bgcolor='rgba(0,0,0,0)',
-                font=dict(color="white")
+                font=dict(color="#ffffff", size=14)
             )
             st.plotly_chart(fig, use_container_width=True)
 
